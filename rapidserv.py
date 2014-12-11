@@ -205,7 +205,6 @@ class Locate(object):
                      ('Content-Length', getsize(path)))
         header.add_header(('Server', 'Rapidserv'))
 
-        print 'the header', header
         # Start sending the header.
         spin.dump(str(header))
 
@@ -320,6 +319,7 @@ def drop(spin, filename):
         spawn(spin, OPEN_FILE_ERR, err)
     else:
         DumpFile(spin, fd)
+
 
 
 
