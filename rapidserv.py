@@ -200,13 +200,15 @@ class Locate(object):
         type_file, encoding = guess_type(path)
         default_type = 'application/octet-stream'
 
-        response = Response()
-        response.set_response('HTTP/1.1 200 OK')
-        response.add_header(('Content-Type', type_file if type_file else default_type),
+        header = Header()
+        header.set_response('HTTP/1.1 200 OK')
+
+        header.add_header(('Content-Type', type_file if type_file else default_type),
                      ('Content-Length', getsize(path)))
-      
+        header.add_header(('Server', 'Rapidserv'))
+
         # Start sending the header.
-        spin.dump(str(response))
+        spin.dump(str(header))
 
         # Wait to dump the header.
         xmap(spin, DUMPED, lambda con: drop(con, path))
@@ -216,37 +218,55 @@ class Locate(object):
         xmap(spin, DUMPED_FILE, lose)
         xmap(spin, OPEN_FILE_ERR, lambda con, err: lose(con))
 
-class Response(object):
+
+class Header(object):
     """ 
     """
-    def __init__(self):
+    def __init__(self, charset='utf-8'):
         self.response = ''
         self.header   = dict()
-        self.data     = ''
+        self.charset  = charset
+        self.add_header(('Content-Type', 'text/html; charset=%s;' % charset))
+        self.add_header(('Server', 'Rapidserv'))
 
     def set_response(self, data):
         """ Used to add a http response. """
-        self.response = data
+        self.response = data.encode(self.charset)
 
     def add_header(self, *args):
         """ 
         Add headers to the http response. 
         """
-        self.header.update(args)
+        for key, value in args:
+            self.header[str(key).encode(self.charset)] = str(value).encode(self.charset)
 
-    def add_data(self, data):
-        self.data = self.data + data
 
     def __str__(self):
         """
         """
-        self.header['Content-Length'] = len(self.data)
+
         data = self.response
         for key, value in self.header.iteritems():
             data = '%s\r\n%s :%s' % (data, key, value)
         data = '%s\r\n\r\n' % data
-        data = data + self.data
         return data
+
+class Response(Header):
+    """ 
+    """
+    def __init__(self, charset='utf-8'):
+        Header.__init__(self, charset)
+        self.data = ''
+
+    def add_data(self, data):
+        self.data = self.data + data.encode(self.charset)
+
+    def __str__(self):
+        """
+        """
+
+        self.header['Content-Length'] = len(self.data)
+        return Header.__str__(self) + self.data
 
 class DebugPost(object):
     """
@@ -300,6 +320,7 @@ def drop(spin, filename):
         spawn(spin, OPEN_FILE_ERR, err)
     else:
         DumpFile(spin, fd)
+
 
 
 
