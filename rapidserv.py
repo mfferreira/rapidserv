@@ -4,13 +4,12 @@ This file implements an abstraction for the http protocol over the server side p
 
 from tempfile import TemporaryFile as tmpfile
 from untwisted.network import *
-from untwisted.utils.stdio import *
-from untwisted.utils.shrug import *
+from untwisted.utils.stdio import Stdin, Stdout, Server, DumpFile, DUMPED, DUMPED_FILE, lose, LOAD, ACCEPT, CLOSE
+from untwisted.utils.stdio import DumpFile
 
 from socket import *
 from os.path import getsize
 from mimetypes import guess_type
-from util import drop, OPEN_FILE_ERR
 from os.path import isfile, join, abspath, basename
 from traceback import print_exc as debug
 
@@ -280,4 +279,29 @@ def send_response(spin, response):
 
 def send_response_wait(spin, response):
     pass
+
+
+def get_env(header):
+    environ = {
+                'REQUEST_METHOD':'POST',
+                'CONTENT_LENGTH':header['Content-Length'],
+                'CONTENT_TYPE':header['Content-Type']
+              }
+
+    return environ
+
+
+OPEN_FILE_ERR = get_event()
+def drop(spin, filename):
+    try:
+        fd = open(filename, 'rb')             
+    except IOError as excpt:
+        err = excpt.args[0]
+        spawn(spin, OPEN_FILE_ERR, err)
+    else:
+        DumpFile(spin, fd)
+
+
+
+
 
