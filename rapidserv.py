@@ -11,10 +11,15 @@ from socket import *
 from os.path import getsize
 from mimetypes import guess_type
 from util import drop, OPEN_FILE_ERR
-from os.path import isfile, join
+from os.path import isfile, join, abspath, basename
 from traceback import print_exc as debug
 
 class RapidServ(object):
+    """
+    The rapidserv class is used to instantiate the server instance with
+    handles.
+    """
+
     def __init__(self, port, backlog):
         sock = socket(AF_INET, SOCK_STREAM)
         sock.bind(('', port))
@@ -39,6 +44,11 @@ class RapidServ(object):
         Get(client)
         Post(client)
 
+        # It serves to determine whether the client made
+        # a request whose resource exists.
+        # In case it didnt the connection is dropped.
+        client.ACTIVE = False
+
         for ind in self.setup:
             ind(client)
 
@@ -51,7 +61,7 @@ class Get(object):
     def __init__(self, spin):
         xmap(spin, 'GET', self.tokenizer)
 
-    def tokenizer(self, spin, header, resource, version):
+    def tokenizer(self, spin, header, fd, resource, version):
         """ Used to extract encoded data with get. """
 
         # from urlparse import parse_qs
@@ -62,7 +72,7 @@ class Get(object):
         if '?' in resource:
             resource, data = resource.split('?', 1)
             
-        spawn(spin, 'GET %s' % resource, header, data, version)
+        spawn(spin, 'GET %s' % resource, header, fd, data, version)
 
 class Post(object):
     """ 
@@ -81,6 +91,7 @@ class HttpServer:
         self.data     = ''
         self.MAX_SIZE = MAX_SIZE
         self.spin     = spin
+        self.fd       = None
 
         xmap(spin, LOAD, self.get_header)
 
@@ -111,8 +122,7 @@ class HttpServer:
         try:
             size = self.header['Content-Length']
         except KeyError:
-            spawn(self.spin, self.request[0], self.header, 
-                                    self.request[1], self.request[2])
+            self.spawn_request()
             return
 
 
@@ -131,17 +141,21 @@ class HttpServer:
 
         xmap(self.spin, LOAD, self.get_data)
 
+    def spawn_request(self):
+        spawn(self.spin, self.request[0], self.header, self.fd,
+                                    self.request[1], self.request[2])
+
+        if not self.spin.ACTIVE:
+            lose(self.spin)
+
     def check_data_size(self):
         if not self.fd.tell() >= self.size:
             return False
 
         self.fd.seek(0)
-
-        spawn(self.spin, self.request[0], header, self.fd,
-                                self.request[1], self.request[2])
-
-
+        self.spawn_request()
         self.fd.close()
+
         return True
 
     def get_data(self, spin, data):
@@ -168,23 +182,27 @@ class HttpServer:
 class Locate(object):
     def __init__(self, spin, path):
         xmap(spin, 'GET', self.locate)
-        self.path     = path
-        self.response = Response()
+        self.path     = abspath(path)
 
-    def locate(self, spin, header, resource, version):
-        path = join(self.path, resource)
+    def locate(self, spin, header, fd, resource, version):
+        path = join(self.path, basename(resource))
 
         if not isfile(path):
             return
 
+        # This is used to tell rapidserv reactor that 
+        # the connection will keep alive to process
+        # sending of data.
+        spin.ACTIVE = True
 
         # Where we are going to serve files.
         # I might spawn an event like FILE_NOT_FOUND.
         # So, users could use it to send appropriate answers.
         type_file, encoding = guess_type(path)
         default_type = 'application/octet-stream'
-        
-        self.response.set_response('HTTP/1.1 200 OK')
+
+        response = Response()
+        response.set_response('HTTP/1.1 200 OK')
         response.add_header(('Content-Type', type_file if type_file else default_type),
                      ('Content-Length', getsize(path)))
       
@@ -231,8 +249,32 @@ class Response(object):
         data = data + self.data
         return data
 
+class DebugPost(object):
+    """
+
+    """
+
+    def __init__(self, spin):
+        xmap(spin, 'POST' , self.show_header)
+
+    def show_header(self, spin, header, fd, resource, version):
+        print 'POST request handled, ', header, version, resource, fd, spin.getpeername()  
+
+
+class DebugGet(object):
+    """
+
+    """
+
+    def __init__(self, spin):
+        xmap(spin, 'GET' , self.show_header)
+
+    def show_header(self, spin, header, fd, resource, version):
+        print 'GET request handled, ', header, resource, version, spin.getpeername()   
+
 
 def send_response(spin, response):
+    spin.ACTIVE = True
     spin.dump(str(response))
     xmap(spin, DUMPED, lambda con: lose(con))
 
