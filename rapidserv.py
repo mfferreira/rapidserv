@@ -6,6 +6,7 @@ from tempfile import TemporaryFile as tmpfile
 from untwisted.network import *
 from untwisted.utils.stdio import Stdin, Stdout, Server, DumpFile, DUMPED, DUMPED_FILE, lose, LOAD, ACCEPT, CLOSE
 from untwisted.utils.stdio import DumpFile
+from urlparse import parse_qs
 
 from socket import *
 from os.path import getsize
@@ -63,15 +64,12 @@ class Get(object):
     def tokenizer(self, spin, header, fd, resource, version):
         """ Used to extract encoded data with get. """
 
-        # from urlparse import parse_qs
-        # query = parse_qs(data)
-        # index = query['index'][0]
-
-        data = ''
-        if '?' in resource:
+        try:
             resource, data = resource.split('?', 1)
-            
-        spawn(spin, 'GET %s' % resource, header, fd, data, version)
+        except ValueError:
+            spawn(spin, 'GET %s' % resource, header, fd, dict(), version)
+        else:
+            spawn(spin, 'GET %s' % resource, header, fd, parse_qs(data), version)
 
 class Post(object):
     """ 
@@ -226,6 +224,8 @@ class Header(object):
     def __init__(self):
         self.response = ''
         self.header   = dict()
+        self.add_header(('Content-Type', 'text/html;charset=utf-8'))
+        self.add_header(('Server', 'Rapidserv'))
 
     def set_response(self, data):
         """ Used to add a http response. """
@@ -242,8 +242,6 @@ class Header(object):
     def __str__(self):
         """
         """
-        self.add_header(('Content-Type', 'text/html;charset=utf-8'))
-        self.add_header(('Server', 'Rapidserv'))
 
         data = self.response
         for key, value in self.header.iteritems():
@@ -297,7 +295,7 @@ class DebugGet(object):
 def send_response(spin, response):
     spin.ACTIVE = True
     spin.dump(str(response))
-    # xmap(spin, DUMPED, lambda con: lose(con))
+    xmap(spin, DUMPED, lambda con: lose(con))
 
 def send_response_wait(spin, response):
     pass
@@ -322,6 +320,7 @@ def drop(spin, filename):
         spawn(spin, OPEN_FILE_ERR, err)
     else:
         DumpFile(spin, fd)
+
 
 
 
