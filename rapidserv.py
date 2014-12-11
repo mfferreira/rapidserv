@@ -207,6 +207,7 @@ class Locate(object):
                      ('Content-Length', getsize(path)))
         header.add_header(('Server', 'Rapidserv'))
 
+        print 'the header', header
         # Start sending the header.
         spin.dump(str(header))
 
@@ -222,51 +223,52 @@ class Locate(object):
 class Header(object):
     """ 
     """
-    def __init__(self, charset='utf-8'):
+    def __init__(self):
         self.response = ''
         self.header   = dict()
-        self.charset  = charset
-        self.add_header(('Content-Type', 'text/html; charset=%s;' % charset))
-        self.add_header(('Server', 'Rapidserv'))
 
     def set_response(self, data):
         """ Used to add a http response. """
-        self.response = data.encode(self.charset)
+        self.response = data
 
     def add_header(self, *args):
         """ 
         Add headers to the http response. 
         """
         for key, value in args:
-            self.header[str(key).encode(self.charset)] = str(value).encode(self.charset)
+            self.header[str(key)] = str(value)
 
 
     def __str__(self):
         """
         """
+        self.add_header(('Content-Type', 'text/html;charset=utf-8'))
+        self.add_header(('Server', 'Rapidserv'))
 
         data = self.response
         for key, value in self.header.iteritems():
-            data = '%s\r\n%s :%s' % (data, key, value)
-        data = '%s\r\n\r\n' % data
+            data = data + '\r\n' + '%s:%s' % (key, value)
+        data = data + '\r\n\r\n'
         return data
 
 class Response(Header):
     """ 
     """
-    def __init__(self, charset='utf-8'):
-        Header.__init__(self, charset)
+    def __init__(self):
+        Header.__init__(self)
         self.data = ''
 
     def add_data(self, data):
-        self.data = self.data + data.encode(self.charset)
+        self.data = self.data + data
 
     def __str__(self):
         """
         """
 
         self.header['Content-Length'] = len(self.data)
-        return Header.__str__(self) + self.data
+
+        x = Header.__str__(self) + self.data
+        return x
 
 class DebugPost(object):
     """
@@ -295,7 +297,7 @@ class DebugGet(object):
 def send_response(spin, response):
     spin.ACTIVE = True
     spin.dump(str(response))
-    xmap(spin, DUMPED, lambda con: lose(con))
+    # xmap(spin, DUMPED, lambda con: lose(con))
 
 def send_response_wait(spin, response):
     pass
@@ -320,6 +322,8 @@ def drop(spin, filename):
         spawn(spin, OPEN_FILE_ERR, err)
     else:
         DumpFile(spin, fd)
+
+
 
 
 
