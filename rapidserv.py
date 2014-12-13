@@ -20,9 +20,9 @@ class RapidServ(object):
     handles.
     """
 
-    def __init__(self, port, backlog):
+    def __init__(self, addr, port, backlog):
         sock = socket(AF_INET, SOCK_STREAM)
-        sock.bind(('', port))
+        sock.bind((addr, port))
         sock.listen(backlog)
 
         local = Spin(sock)
@@ -319,6 +319,7 @@ def drop(spin, filename):
         spawn(spin, OPEN_FILE_ERR, err)
     else:
         DumpFile(spin, fd)
+
 
 
 
