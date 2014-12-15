@@ -86,7 +86,7 @@ class Post(object):
 
 class HttpServer:
     MAX_SIZE = 124 * 1024
-    TIMEOUT  = 20
+    TIMEOUT  = 5
 
     def __init__(self, spin):
         self.request  = ''
