@@ -1,25 +1,10 @@
-rapidserv
-=========
+"""
+Description: Just send html back to the client.
 
-A simple python web framework on top of untwisted that permits using different template systems.
+Usage:
+python app.py
+"""
 
-
-Install
-=======
-
-    cd /tmp
-    git clone git@github.com:iogf/rapidserv.git rapidserv-code
-    cd rapidserv-code
-    python setup.py install
-
-
-That is all.
-
-    
-A simple example
-================
-
-~~~python
 from rapidserv import RapidServ, send_response, Response, core, xmap
 
 class Simple(object):
@@ -47,8 +32,6 @@ if __name__ == '__main__':
 
     app.add_handle(Simple)
     core.gear.mainloop()
-~~~
-
-
+    
 
 

@@ -321,12 +321,29 @@ def drop(spin, filename):
 
 
 
+def build(searchpath, folder, *args):
+    """
 
+    """
 
+    from jinja2 import Template, FileSystemLoader, Environment
+    from os.path import join, abspath, dirname
 
+    loader        = FileSystemLoader(searchpath = make(searchpath, folder))
+    env           = Environment(loader=loader)
+    base          = dict(zip(args, map(env.get_template, args)))
 
+    def render(filename, *args, **kwargs):
+        return base[filename].render(*args, **kwargs)
+    return render
 
+def make(searchpath, folder):
+    """
 
+    """
+    from os.path import join, abspath, dirname
+    searchpath = join(dirname(abspath(searchpath)), folder)
+    return searchpath
 
 
 
