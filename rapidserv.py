@@ -5,7 +5,7 @@ This file implements an abstraction for the http protocol over the server side p
 from tempfile import TemporaryFile as tmpfile
 from untwisted.network import *
 from untwisted.utils.stdio import Stdin, Stdout, Server, DumpFile, DUMPED, DUMPED_FILE, lose, LOAD, ACCEPT, CLOSE
-from untwisted.utils.stdio import DumpFile
+from untwisted.task import sched
 from urlparse import parse_qs
 
 from socket import *
@@ -15,6 +15,7 @@ from os.path import isfile, join, abspath, basename
 from traceback import print_exc as debug
 
 INVALID_BODY_SIZE = get_event()
+IDLE_TIMEOUT      = get_event()
 
 class RapidServ(object):
     """
@@ -85,6 +86,7 @@ class Post(object):
 
 class HttpServer:
     MAX_SIZE = 124 * 1024
+    TIMEOUT  = 20
 
     def __init__(self, spin):
         self.request  = ''
@@ -93,7 +95,11 @@ class HttpServer:
         self.spin     = spin
         self.fd       = None
 
+        sched.after(self.TIMEOUT, self.spawn_idle_timeout, True)
         xmap(spin, LOAD, self.get_header)
+
+    def spawn_idle_timeout(self):
+        spawn(self.spin, IDLE_TIMEOUT)
 
     def split_header(self, data):
         header  = data.split('\r\n')
@@ -150,6 +156,8 @@ class HttpServer:
         xmap(self.spin, LOAD, self.get_data)
 
     def spawn_request(self):
+        sched.unmark(self.TIMEOUT, self.spawn_idle_timeout)
+
         spawn(self.spin, self.request[0], self.header, self.fd,
                                     self.request[1], self.request[2])
 
@@ -189,6 +197,7 @@ class HttpServer:
 class InvalidRequest(object):
     def __init__(self, spin):
         xmap(spin, INVALID_BODY_SIZE, self.error)
+        xmap(spin, IDLE_TIMEOUT, self.error)
 
     def error(self, spin):
         response  = Response()
@@ -365,6 +374,7 @@ def make(searchpath, folder):
     from os.path import join, abspath, dirname
     searchpath = join(dirname(abspath(searchpath)), folder)
     return searchpath
+
 
 
 
