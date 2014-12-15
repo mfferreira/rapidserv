@@ -14,6 +14,8 @@ from mimetypes import guess_type
 from os.path import isfile, join, abspath, basename
 from traceback import print_exc as debug
 
+INVALID_BODY_SIZE = get_event()
+
 class RapidServ(object):
     """
     The rapidserv class is used to instantiate the server instance with
@@ -82,11 +84,12 @@ class Post(object):
         spawn(spin, 'POST %s' % resource, header, fd, version)
 
 class HttpServer:
-    def __init__(self, spin, MAX_SIZE = 124 * 1024):
+    MAX_SIZE = 124 * 1024
+
+    def __init__(self, spin):
         self.request  = ''
         self.header   = ''
         self.data     = ''
-        self.MAX_SIZE = MAX_SIZE
         self.spin     = spin
         self.fd       = None
 
@@ -122,14 +125,18 @@ class HttpServer:
             self.spawn_request()
             return
 
-
-        # If the size of the request is greater than self.MAX_SIZE
-        # it just doesnt process the request.
-        # I may turn it into an event.
-        if size > self.MAX_SIZE:
-            return
-
         self.size = int(size)
+
+        # If self.size is larger than self.MAX_SIZE
+        # it spawns INVALID_BODY_SIZE
+        # As self.fd.tell() == 0 and self.size > 0
+        # xmap(self.spin, LOAD, self.get_data will not be
+        # mapped. The body will be empty, no need to drop    
+        # the connection here. Permiting clients of the protocol
+        # to install handles to deal with this event.
+        if self.size > self.MAX_SIZE:
+            spawn(self.spin, INVALID_BODY_SIZE)
+
         self.fd   = tmpfile('a+')
         is_done   = self.check_data_size()
 
@@ -344,6 +351,7 @@ def make(searchpath, folder):
     from os.path import join, abspath, dirname
     searchpath = join(dirname(abspath(searchpath)), folder)
     return searchpath
+
 
 
 
