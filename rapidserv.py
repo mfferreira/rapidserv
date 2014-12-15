@@ -136,7 +136,11 @@ class HttpServer:
         # to install handles to deal with this event.
         if self.size > self.MAX_SIZE:
             spawn(self.spin, INVALID_BODY_SIZE)
+        else:
+            self.wait_for_data()
 
+
+    def wait_for_data(self):
         self.fd   = tmpfile('a+')
         is_done   = self.check_data_size()
 
@@ -182,6 +186,17 @@ class HttpServer:
         # it lets the spin instance ready for another request.
         self.__init__(self, self.spin)
 
+class InvalidRequest(object):
+    def __init__(self, spin):
+        xmap(spin, INVALID_BODY_SIZE, self.error)
+
+    def error(self, spin):
+        print 'bad request'
+        response  = Response()
+        response.set_response('HTTP/1.1 400 Bad request')
+        HTML = '<html> <body> <h1> Bad request </h1> </body> </html>'
+        response.add_data(HTML)
+        send_response(spin, HTML)
 
 class Locate(object):
     def __init__(self, spin, path):
