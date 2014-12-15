@@ -191,7 +191,6 @@ class InvalidRequest(object):
         xmap(spin, INVALID_BODY_SIZE, self.error)
 
     def error(self, spin):
-        print 'bad request'
         response  = Response()
         response.set_response('HTTP/1.1 400 Bad request')
         HTML = '<html> <body> <h1> Bad request </h1> </body> </html>'
