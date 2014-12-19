@@ -7,6 +7,7 @@ from untwisted.network import *
 from untwisted.utils.stdio import Stdin, Stdout, Server, DumpFile, DUMPED, DUMPED_FILE, lose, LOAD, ACCEPT, CLOSE
 from untwisted.task import sched
 from urlparse import parse_qs
+from cgi import FieldStorage
 
 from socket import *
 from os.path import getsize
@@ -66,13 +67,15 @@ class Get(object):
 
     def tokenizer(self, spin, header, fd, resource, version):
         """ Used to extract encoded data with get. """
+        data = ''
 
         try:
             resource, data = resource.split('?', 1)
         except ValueError:
-            spawn(spin, 'GET %s' % resource, header, fd, dict(), version)
-        else:
-            spawn(spin, 'GET %s' % resource, header, fd, parse_qs(data), version)
+            pass
+
+        spawn(spin, 'GET %s' % resource, header, fd,
+                                     parse_qs(data), version)
 
 class Post(object):
     """ 
@@ -82,7 +85,16 @@ class Post(object):
         xmap(spin, 'POST', self.tokenizer)
 
     def tokenizer(self, spin, header, fd, resource, version):
-        spawn(spin, 'POST %s' % resource, header, fd, version)
+        data = ''
+
+        try:
+            resource, data = resource.split('?', 1)
+        except ValueError:
+            pass
+
+        spawn(spin, 'POST %s' % resource, header, 
+              FieldStorage(fp=fd, environ=get_env(header)),
+                                         parse_qs(data), version)
 
 class HttpServer:
     MAX_SIZE = 124 * 1024
@@ -147,8 +159,19 @@ class HttpServer:
 
 
     def wait_for_data(self):
-        self.fd   = tmpfile('a+')
-        is_done   = self.check_data_size()
+        try:
+            self.fd = tmpfile('a+')
+        except Exception:
+            debug()
+            return
+
+        try:
+            self.fd.write(self.data)
+        except Exception:
+            debug()
+            return
+
+        is_done = self.check_data_size()
 
         if is_done:
             return
@@ -190,9 +213,8 @@ class HttpServer:
         if is_done:
             zmap(spin, LOAD, self.get_data)
 
-        # Case the client is using Keep-Alive 
-        # it lets the spin instance ready for another request.
-        self.__init__(self, self.spin)
+        # keep alive connections.
+        # self.__init__(self.spin)
 
 class InvalidRequest(object):
     def __init__(self, spin):
@@ -374,6 +396,9 @@ def make(searchpath, folder):
     from os.path import join, abspath, dirname
     searchpath = join(dirname(abspath(searchpath)), folder)
     return searchpath
+
+
+
 
 
 
