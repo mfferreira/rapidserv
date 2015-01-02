@@ -17,15 +17,19 @@ class QuoteHandle(object):
     MAX_LENGTH = 30
 
     def __init__(self, con):
+        # Used to map a handle to a route.
         xmap(con, 'GET /', self.send_base)
         xmap(con, 'GET /load_index', self.load_index)
         xmap(con, 'GET /add_quote', self.add_quote)
 
     def send_base(self, con, header, fd, data, version):
+        # The http response.
         response = Response()
         response.set_response('HTTP/1.1 200 OK')
 
         HTML = render('show.jinja', posts = DB.iteritems())
+
+        # Add a body.
         response.add_data(HTML)
 
         send_response(con, str(response))
@@ -59,4 +63,5 @@ if __name__ == '__main__':
     app.add_handle(DebugGet)
     core.gear.mainloop()
     
+
 

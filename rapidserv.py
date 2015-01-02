@@ -22,6 +22,20 @@ class RapidServ(object):
     """
     The rapidserv class is used to instantiate the server instance with
     handles.
+
+    Example:
+
+    # The '0.0.0.0' is an interface where to listen for connections.
+    # The value 5000 is the port.
+    # The value 60 is the backlog.
+    app = RapidServ('0.0.0.0', 5000, 60)
+
+    # Handle is any callable object.
+    app.add_handle(Handle)
+
+    # Tells untwisted to start processing events.
+    core.gear.mainloop()
+
     """
 
     def __init__(self, addr, port, backlog):
@@ -38,9 +52,35 @@ class RapidServ(object):
         self.setup = []
 
     def add_handle(self, handle, *args, **kwargs):
+        """
+        Handle   - Any callable object.
+        *args    - Arguments to be passed to Handle.
+        **kwargs - A dict passed to Handle.
+
+        Example:
+
+        class Handle(object):
+            def __init__(self, con):
+                # xmap is used to map a router to a callback.
+                xmap(con, 'GET /', self.on_get)
+        
+            def on_get(self, con, header, fd, data, version):
+                pass
+
+        if __name__ == '__main__':
+            app = RapidServ('0.0.0.0', 5000, 60)
+            app.add_handle(Simple)
+        
+        """
+
         self.setup.append(lambda spin: handle(spin, *args, **kwargs))
     
     def handle_accept(self, local, client):
+        """
+        This method is not supposed to be called by functions outside
+        this class.
+        """
+
         Stdin(client)
         Stdout(client)
 
@@ -60,6 +100,7 @@ class RapidServ(object):
 
 class Get(object):
     """ 
+    This class shouldn't be used outside this module.
     """
 
     def __init__(self, spin):
@@ -79,6 +120,7 @@ class Get(object):
 
 class Post(object):
     """ 
+    This class shouldn't be used outside this module.
     """
 
     def __init__(self, spin):
@@ -97,6 +139,10 @@ class Post(object):
                                          parse_qs(data), version)
 
 class HttpServer:
+    """ 
+    This class shouldn't be used outside this module.
+    """
+
     MAX_SIZE = 124 * 1024
     TIMEOUT  = 16
 
@@ -217,6 +263,11 @@ class HttpServer:
         # self.__init__(self.spin)
 
 class InvalidRequest(object):
+    """ 
+    This handle is used to finish a connection
+    whose state do not match the constraints.
+    """
+
     def __init__(self, spin):
         xmap(spin, INVALID_BODY_SIZE, self.error)
         xmap(spin, IDLE_TIMEOUT, self.error)
@@ -229,6 +280,21 @@ class InvalidRequest(object):
         send_response(spin, HTML)
 
 class Locate(object):
+    """
+    This handle is used to serve static html.
+
+    Example:
+
+    import sys
+    BACKLOG = 50
+    app     = RapidServ(sys.argv[1], int(sys.argv[2]), BACKLOG)
+
+    # It will tell Rapidserv to serve html document in a folder
+    # under the directory __file__.
+    app.add_handle(Locate, make(__file__, 'static'))
+    core.gear.mainloop()
+    """
+
     def __init__(self, spin, path):
         xmap(spin, 'GET', self.locate)
         self.path     = abspath(path)
@@ -270,6 +336,7 @@ class Locate(object):
 
 class Header(object):
     """ 
+    This class is used to drop header content to the client.
     """
     def __init__(self):
         self.response = ''
@@ -301,6 +368,7 @@ class Header(object):
 
 class Response(Header):
     """ 
+    This class is used to dump header and body content to the client.
     """
     def __init__(self):
         Header.__init__(self)
@@ -320,7 +388,7 @@ class Response(Header):
 
 class DebugPost(object):
     """
-
+    Used to debug POST calls.
     """
 
     def __init__(self, spin):
@@ -332,7 +400,7 @@ class DebugPost(object):
 
 class DebugGet(object):
     """
-
+    Used to debug GET calls.
     """
 
     def __init__(self, spin):
@@ -343,15 +411,27 @@ class DebugGet(object):
 
 
 def send_response(spin, response):
+    """
+    Used to dump a Response/Header object to the client as well
+    as all object whose method __str__ is implemented.
+    """
+
     spin.ACTIVE = True
     spin.dump(str(response))
     xmap(spin, DUMPED, lambda con: lose(con))
 
 def send_response_wait(spin, response):
+    """
+    Used to dump content to the client and do not lose the connection.
+    """
     pass
 
 
 def get_env(header):
+    """
+    Shouldn't be called outside this module.
+    """
+
     environ = {
                 'REQUEST_METHOD':'POST',
                 'CONTENT_LENGTH':header['Content-Length'],
@@ -363,6 +443,10 @@ def get_env(header):
 
 OPEN_FILE_ERR = get_event()
 def drop(spin, filename):
+    """
+    Shouldn't be called outside this module.
+    """
+
     try:
         fd = open(filename, 'rb')             
     except IOError as excpt:
@@ -375,7 +459,17 @@ def drop(spin, filename):
 
 def build(searchpath, folder, *args):
     """
+    Used to render a template.
 
+    Example:
+    
+    render is a function that will render the templates show.jinja or view.jinja.
+
+    render = build(__file__, 'templates', 'show.jinja', 'view.jinja')
+    
+    render('show.jinja', a = 'cool')
+
+    Would render show.jinja with the parameter a = 'cool'.
     """
 
     from jinja2 import Template, FileSystemLoader, Environment
@@ -391,11 +485,12 @@ def build(searchpath, folder, *args):
 
 def make(searchpath, folder):
     """
-
+    Used to build a path search for Locate plugin.
     """
     from os.path import join, abspath, dirname
     searchpath = join(dirname(abspath(searchpath)), folder)
     return searchpath
+
 
 
 
